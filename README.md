@@ -18,7 +18,7 @@ The add-on works with Blender 3.3 or newer versions:
 
 The import operator is available in the menu `[File]->[Import]`. Multiple brush files can be selected at once.
 
-![](docs/import_menu.png)
+<img src="docs/import_menu.png" height=300>
 
 Please make sure to select the Blender mode where the brush will be used. The imported brush will be displayed in the selected mode only.
 
@@ -26,7 +26,7 @@ Please make sure to select the Blender mode where the brush will be used. The im
 
 It is possible that some brushes are not fully compatible with Blender, and their textures may not fit well. In this case, the add-on also provides with some image utilities to modulate the color/alpha channels of imported textures. These utilities are available as a menu in the brush tool settings: `[Tool]->[Brush Settings]->[Texture]`.
 
-![](docs/util_menu.png)
+<img src="docs/util_menu.png" height=300>
 
 ### Tips
 
