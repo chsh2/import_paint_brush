@@ -238,8 +238,12 @@ class ImportBrushOperator(bpy.types.Operator, ImportHelper):
                     new_brush.texture_slot.map_mode = 'VIEW_PLANE'
                     new_brush.texture_slot.use_random = self.use_random_rotation
                 else:
-                    new_brush.mask_texture = tex_obj
-                    new_brush.mask_texture_slot.map_mode = 'TILED'
+                    if self.brush_context_mode == 'TEXTURE':
+                        new_brush.mask_texture = tex_obj
+                        new_brush.mask_texture_slot.map_mode = 'TILED'
+                    else:
+                        new_brush.texture = tex_obj
+                        new_brush.texture.map_mode = 'TILED'                        
 
                 # Create an icon by scaling the brush texture down
                 icon_obj = img_obj.copy()
