@@ -20,7 +20,9 @@ def new_gp_brush(name):
     """Creation of a new Grease Pencil brush should consider the difference between GPv2 and GPv3"""
     if bpy.app.version >= (4, 3, 0):
         res = bpy.data.brushes.new(name, mode='PAINT_GREASE_PENCIL')
+        res.color = (0,0,0)
         res.gpencil_settings.vertex_color_factor = 1
+        res.gpencil_settings.vertex_mode = 'BOTH'
     else:
         src = [brush for brush in bpy.data.brushes if brush.use_paint_grease_pencil and brush.gpencil_tool=='DRAW']
         if len(src) < 1:
@@ -249,7 +251,7 @@ class ImportBrushOperator(bpy.types.Operator, ImportHelper):
                 icon_obj = img_obj.copy()
                 icon_obj.name = f"icon_{self.brush_context_mode}_{f.name.split('.')[0]}_{i}"
                 icon_filepath = os.path.join(icon_dir, icon_obj.name+'.png')
-                icon_obj.filepath = icon_filepath
+                icon_obj.filepath_raw = icon_filepath
                 icon_obj.scale(256,256)
                 icon_obj.save()
                 new_brush.icon_filepath = icon_filepath
