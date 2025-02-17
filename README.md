@@ -30,8 +30,8 @@ It is possible that some brushes are not fully compatible with Blender, and thei
 
 ### Tips
 
-- Please make sure to follow the license of the original brush asset. 
-- It may take a long time to parse a file with high resolution (e.g. > 2000px) textures or multiple brushes. For frequently used brushes, it is recommended to save them as Blender assets, instead of importing them every time.
+- Please ensure that you comply with the copyright and licensing terms of the original brush assets. This tool only provides format conversion and does not grant you any additional rights to use or redistribute the converted brushes.
+- It may take a long time to parse a file with high resolution (e.g. > 2000px) textures or a large number of brushes. For frequently used brushes, it is recommended to save them as Blender assets, instead of importing them every time.
 - Only brush files containing texture images can be converted by this add-on. Brushes exported with only parameters cannot be imported. Such brushes usually have a very small file size.
 
 ## Credits
