@@ -14,6 +14,9 @@ The add-on works with Blender 3.3 or newer versions:
 
 ## Usage
 
+### Demo Video
+https://youtu.be/STM5eU0PRvo
+
 ### Import Brush Files
 
 The import operator is available in the menu `[File]->[Import]`. Multiple brush files can be selected at once.
