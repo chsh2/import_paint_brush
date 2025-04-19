@@ -3,7 +3,6 @@ import numpy as np
 
 abr_skipped_bytes = {1: 47, 2: 301}
 
-# Brush formats
 def rle_decode(bytes, img_H, img_W, depth):
     """
     This function follows the Photoshop specification as stated below:
