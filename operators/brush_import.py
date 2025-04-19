@@ -2,7 +2,7 @@ import os
 import struct
 import bpy
 from bpy_extras.io_utils import ImportHelper
-from ..brush_file_parser import GbrParser, Abr1Parser, Abr6Parser, BrushsetParser, SutParser
+from ..brush_file_parser import *
 
 def brush_filter(brush: bpy.types.Brush, keyword):
     """Show users only the relevant brushes"""
@@ -42,7 +42,7 @@ class ImportBrushOperator(bpy.types.Operator, ImportHelper):
     files: bpy.props.CollectionProperty(type=bpy.types.OperatorFileListElement)
     filepath = bpy.props.StringProperty(name="File Path", subtype='FILE_PATH')
     filter_glob: bpy.props.StringProperty(
-        default='*.gbr;*.abr;*.brushset;*.brush;*.sut',
+        default='*.gbr;*.gih;*.abr;*.brushset;*.brush;*.sut',
         options={'HIDDEN'}
     )
     brush_context_mode: bpy.props.EnumProperty(
@@ -109,6 +109,8 @@ class ImportBrushOperator(bpy.types.Operator, ImportHelper):
             parser = None
             if f.name.endswith('.gbr'):  
                 parser = GbrParser(fd.read())
+            elif f.name.endswith('.gih'):
+                parser = GihParser(fd.read())
             elif f.name.endswith('.abr'):
                 bytes = fd.read()
                 major_version = struct.unpack_from('>H',bytes)[0]
