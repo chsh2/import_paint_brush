@@ -175,7 +175,7 @@ class ImportBrushOperator(bpy.types.Operator, ImportHelper):
                     
                 # Convert image to Blender data block
                 brush_name += '.' + self.brush_context_mode
-                img_obj = bpy.data.images.new(brush_name, img_W, img_H, alpha=True, float_buffer=True)
+                img_obj = bpy.data.images.new(brush_name, img_W, img_H, alpha=True, float_buffer=False)
                 img_pixels = np.flipud(image_mat).astype(np.float32).ravel() / 255.0
                 img_obj.pixels.foreach_set(img_pixels)
                 img_obj.pack()
