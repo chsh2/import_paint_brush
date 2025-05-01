@@ -1,4 +1,5 @@
 import struct
+import uuid
 import numpy as np
 
 abr_skipped_bytes = {1: 47, 2: 301}
@@ -357,7 +358,7 @@ class SutParser():
             while pos >= 0:
                 end_pos.append(pos)
                 pos = img_bytes[0].find(b'IEND', pos+1)      
-            tmp_filepath = os.path.join(cache_dir, f"{brush_name}.png") 
+            tmp_filepath = os.path.join(cache_dir, f"{uuid.uuid4()}.png") 
             with open(tmp_filepath, 'wb') as tmp_file:
                 tmp_file.write(img_bytes[0][start_pos[-1]-1:end_pos[-1]+8])
             

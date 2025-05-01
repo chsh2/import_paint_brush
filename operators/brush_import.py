@@ -92,7 +92,7 @@ class ImportBrushOperator(bpy.types.Operator, ImportHelper):
         elif self.icon_save_path=='PROJECT' and len(bpy.path.abspath('//'))>0:
             icon_dir = bpy.path.abspath('//')
         else:
-            icon_dir = get_cache_folder()
+            icon_dir = bpy.app.tempdir
         icon_dir = os.path.join(icon_dir, 'bl_paint_brush_icons')
         if not os.path.exists(icon_dir):
             os.makedirs(icon_dir)
