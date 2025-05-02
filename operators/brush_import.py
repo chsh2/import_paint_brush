@@ -102,31 +102,40 @@ class ImportBrushOperator(bpy.types.Operator, ImportHelper):
         #    Other modes:         Image -> Texture -> Brush
         
         total_brushes = 0
+        failures = 0
         for f in self.files:
             # Determine the software that generates the brush file
             filename = os.path.join(self.directory, f.name)
             fd = open(filename, 'rb')
             parser = None
-            if f.name.endswith('.gbr'):  
-                parser = GbrParser(fd.read())
-            elif f.name.endswith('.gih'):
-                parser = GihParser(fd.read())
-            elif f.name.endswith('.abr'):
-                bytes = fd.read()
-                major_version = struct.unpack_from('>H',bytes)[0]
-                if major_version > 5:
-                    parser = Abr6Parser(bytes)
-                else:
-                    parser = Abr1Parser(bytes)
-            elif f.name.endswith('.brushset') or f.name.endswith('.brush'):
-                parser = BrushsetParser(filename)
-            elif f.name.endswith('.sut'):
-                parser = SutParser(filename)
-            if not parser or not parser.check():
-                self.report({"ERROR"}, f"The brush file {f.name} cannot be recognized or does not contain any images.")
-                return {'FINISHED'}
 
-            parser.parse()
+            try:
+                if f.name.endswith('.gbr'):  
+                    parser = GbrParser(fd.read())
+                elif f.name.endswith('.gih'):
+                    parser = GihParser(fd.read())
+                elif f.name.endswith('.abr'):
+                    bytes = fd.read()
+                    major_version = struct.unpack_from('>H',bytes)[0]
+                    if major_version > 5:
+                        parser = Abr6Parser(bytes)
+                    else:
+                        parser = Abr1Parser(bytes)
+                elif f.name.endswith('.brushset') or f.name.endswith('.brush'):
+                    parser = BrushsetParser(filename)
+                elif f.name.endswith('.sut'):
+                    parser = SutParser(filename)
+
+                if not parser or not parser.check():
+                    self.report({"ERROR"}, f"The brush file {f.name} cannot be recognized.")
+                    continue
+                parser.parse()
+                
+            except Exception as e:
+                self.report({"ERROR"}, f"Failed to parse the brush file {f.name}: {e}")
+                failures += 1
+                continue
+
             total_brushes += len(parser.brush_mats)
             for i,brush_mat in enumerate(parser.brush_mats):
                 if len(parser.brush_mats) == 1:
@@ -341,5 +350,8 @@ class ImportBrushOperator(bpy.types.Operator, ImportHelper):
                             new_brush.gpencil_settings.random_value_factor = orig_params['BrushValueChange'] / 100.0
             fd.close()
             
-        self.report({"INFO"}, f'Finish converting and importing {total_brushes} brush texture(s).')           
+        if failures == 0:
+            self.report({"INFO"}, f'Imported {total_brushes} brush texture(s).') 
+        else:
+            self.report({"WARNING"}, f'Imported {total_brushes} brush texture(s). Failed to recognize {failures} brush file(s).') 
         return {'FINISHED'}
