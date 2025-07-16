@@ -46,17 +46,24 @@ property_names = {
     tag_as_u4(b"szVr"): "sizeControl",
     tag_as_u4(b"bVTy"): "control",
     tag_as_u4(b"fStp"): "fadeStep",
-    tag_as_u4(b"szVr"): "sizeControl",
     tag_as_u4(b"Wtdg"): "wetEdges",
     tag_as_u4(b"Nose"): "noise",
     tag_as_u4(b"Rpt "): "airbrush",
-    tag_as_u4(b"prVr"): "flowJitter",
-    tag_as_u4(b"opVr"): "opacityJitter",
+    tag_as_u4(b"BlnM"): "blendMode",
+    tag_as_u4(b"Cnt "): "count",
+    tag_as_u4(b"prVr"): "flowDynamics",
+    tag_as_u4(b"opVr"): "opacityDynamics",
+    tag_as_u4(b"wtVr"): "wetnessDynamics",
+    tag_as_u4(b"mxVr"): "mixDynamics",
+    tag_as_u4(b"clVr"): "colorDynamics",
     tag_as_u4(b"InvT"): "invertTexture",
     tag_as_u4(b"Txtr"): "texture",
     tag_as_u4(b"TxtC"): "textureEachTip",
     tag_as_u4(b"Mnm "): "minimum",
-    tag_as_u4(b"Idnt"): "identifier"
+    tag_as_u4(b"Idnt"): "identifier",
+    tag_as_u4(b"H   "): "hueJitter",
+    tag_as_u4(b"Strt"): "saturationJitter",
+    tag_as_u4(b"Brgh"): "brightnessJitter",
 }
 
 def rle_decode(bytes, img_H, img_W, depth):
