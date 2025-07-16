@@ -2,7 +2,7 @@ import os
 import struct
 import bpy
 from bpy_extras.io_utils import ImportHelper
-from ..brush_file_parser import *
+from ..brush_file_parsers import *
 
 def brush_filter(brush: bpy.types.Brush, keyword):
     """Show users only the relevant brushes"""
