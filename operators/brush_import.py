@@ -32,6 +32,16 @@ def new_gp_brush(name):
         res.name = name
     return res
 
+def set_brush_color_randomness(brush, attribute, value):
+    """Depending on Blender verions, color randomness is available in different modes and also has different attribute names"""
+    new_attr = f'{attribute}_jitter'
+    if hasattr(brush, new_attr):
+        setattr(brush, new_attr, value)
+
+    legacy_attr = f'random_{attribute}_factor'
+    if hasattr(brush, 'gpencil_settings') and hasattr(brush.gpencil_settings, legacy_attr):
+        setattr(brush.gpencil_settings, legacy_attr, value)
+
 class ImportBrushOperator(bpy.types.Operator, ImportHelper):
     """Extract textures from several painting software brush formats to create Blender brushes"""
     bl_idname = "paint_brush.import_brushes"
@@ -274,6 +284,31 @@ class ImportBrushOperator(bpy.types.Operator, ImportHelper):
                 new_brush.asset_generate_preview()
                 new_brush.asset_mark()
                 new_brush.asset_data.description = f'Converted from: {f.name}'
+
+                # Parse and convert Photoshop brush parameters
+                if isinstance(parser, Abr6Parser) and orig_params:
+                    if 'brush' in orig_params:
+                        if 'diameter' in orig_params['brush']:
+                            new_brush.size = int(orig_params['brush']['diameter'].value)
+                        if 'spacing' in orig_params['brush']:
+                            new_brush.spacing = int(orig_params['brush']['spacing'].value)
+                    if 'toolOptions' in orig_params:
+                        if 'Opct' in orig_params['brush']:
+                            new_brush.strength = orig_params['toolOptions']['Opct'].value * 0.01
+                    if 'sizeControl' in orig_params:
+                        if 'jitter' in orig_params['sizeControl']:
+                            if self.brush_context_mode == 'GPENCIL':
+                                new_brush.gpencil_settings.random_pressure = orig_params['sizeControl']['jitter'].value * 0.01
+                    if 'opacityDynamics' in orig_params:
+                        if 'jitter' in orig_params['opacityDynamics']:
+                            if self.brush_context_mode == 'GPENCIL':
+                                new_brush.gpencil_settings.random_strength = orig_params['opacityDynamics']['jitter'].value * 0.01
+                    if 'hueJitter' in orig_params:
+                        set_brush_color_randomness(new_brush, 'hue', orig_params['hueJitter'].value * 0.01)
+                    if 'saturationJitter' in orig_params:
+                        set_brush_color_randomness(new_brush, 'saturation', orig_params['saturationJitter'].value * 0.01)
+                    if 'brightnessJitter' in orig_params:
+                        set_brush_color_randomness(new_brush, 'value', orig_params['brightnessJitter'].value * 0.01)
                     
                 # Parse and convert Procreate brush parameters
                 if isinstance(parser, BrushsetParser) and orig_params:
@@ -304,14 +339,11 @@ class ImportBrushOperator(bpy.types.Operator, ImportHelper):
                         if self.brush_context_mode == 'GPENCIL':
                             new_brush.gpencil_settings.random_strength = orig_params['dynamicsJitterOpacity']
                     if 'dynamicsJitterHue' in orig_params:
-                        if self.brush_context_mode == 'GPENCIL':
-                            new_brush.gpencil_settings.random_hue_factor = orig_params['dynamicsJitterHue']
+                        set_brush_color_randomness(new_brush, 'hue', orig_params['dynamicsJitterHue'])
                     if 'dynamicsJitterStrokeSaturation' in orig_params:
-                        if self.brush_context_mode == 'GPENCIL':
-                            new_brush.gpencil_settings.random_saturation_factor = orig_params['dynamicsJitterStrokeSaturation']
+                        set_brush_color_randomness(new_brush, 'saturation', orig_params['dynamicsJitterStrokeSaturation'])
                     if 'dynamicsJitterStrokeDarkness' in orig_params:
-                        if self.brush_context_mode == 'GPENCIL':
-                            new_brush.gpencil_settings.random_value_factor = orig_params['dynamicsJitterStrokeDarkness']
+                        set_brush_color_randomness(new_brush, 'value', orig_params['dynamicsJitterStrokeDarkness'])
                             
                 # Parse and convert SUT brush parameters
                 if isinstance(parser, SutParser) and orig_params:
@@ -345,10 +377,9 @@ class ImportBrushOperator(bpy.types.Operator, ImportHelper):
                         else:
                             new_brush.spacing = int(orig_params['BrushInterval'])
                     if 'BrushChangePatternColor' in orig_params and orig_params['BrushChangePatternColor'] > 0:
-                        if self.brush_context_mode == 'GPENCIL':
-                            new_brush.gpencil_settings.random_hue_factor = orig_params['BrushHueChange'] / 360.0
-                            new_brush.gpencil_settings.random_saturation_factor = orig_params['BrushSaturationChange'] / 100.0
-                            new_brush.gpencil_settings.random_value_factor = orig_params['BrushValueChange'] / 100.0
+                        set_brush_color_randomness(new_brush, 'hue', orig_params['BrushHueChange'] / 360.0)
+                        set_brush_color_randomness(new_brush, 'saturation', orig_params['BrushSaturationChange'] / 100.0)
+                        set_brush_color_randomness(new_brush, 'value', orig_params['BrushValueChange'] / 100.0)
             fd.close()
             
         if failures == 0:

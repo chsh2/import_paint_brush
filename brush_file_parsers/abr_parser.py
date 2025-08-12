@@ -257,7 +257,7 @@ class Abr6Parser:
         
         name = brush.get("name")
         
-        return (name, {})
+        return (name, brush)
 
     def parse_map(self):
         obj = {}
