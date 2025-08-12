@@ -44,3 +44,5 @@ The parsing of brush formats is learned from the following documents/projects:
 - [Adobe Photoshop File Format Specification](https://www.adobe.com/devnet-apps/photoshop/fileformatashtml/)
 - [GIMP Source Code](https://github.com/GNOME/gimp/)
 - ["Just Solve the File Format Problem" Wiki](http://fileformats.archiveteam.org/wiki/Photoshop_brush)
+- [Krita Wiki](https://community.kde.org/Krita/Photoshop_Mapping_Table)
+- [Brush-viewer by jlai](https://github.com/jlai/brush-viewer)
