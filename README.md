@@ -7,7 +7,7 @@ This is an add-on that converts brush assets of several popular painting softwar
 
 ## Installation
 
-The add-on works with Blender 3.3 or newer versions:
+The add-on works with Blender 3.3 ~ 4.5:
 
 1. Download the archive file from the GitHub Release page. Do not unzip it.
 2. In Blender, open `[Edit]->[Preferences]->[Add-ons]` and click the Install button to load the archive. Enable the installed add-on.
@@ -33,9 +33,9 @@ It is possible that some brushes are not fully compatible with Blender, and thei
 
 ### Tips
 
+- Blender stores brushes in the current `.blend` file. To reuse the converted brushes in other files, please save the file to your [asset library](https://docs.blender.org/manual/en/latest/files/asset_libraries/introduction.html#what-is-an-asset-library).
+- This add-on can only convert brush files that contain texture images. Some brushes, which usually have a very small file size, only store parameters and no images. These brushes cannot be imported.
 - Please ensure that you comply with the copyright and licensing terms of the original brush assets. This tool only provides format conversion and does not grant you any additional rights to use or redistribute the converted brushes.
-- It may take a long time to parse a file with high resolution (e.g. > 2000px) textures or a large number of brushes. For frequently used brushes, it is recommended to save them as Blender assets, instead of importing them every time.
-- Only brush files containing texture images can be converted by this add-on. Brushes exported with only parameters cannot be imported. Such brushes usually have a very small file size.
 
 ## Credits
 

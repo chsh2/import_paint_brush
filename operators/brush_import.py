@@ -250,7 +250,6 @@ class ImportBrushOperator(bpy.types.Operator, ImportHelper):
                 
                 # Set basic parameters for the brush of different modes
                 new_brush.name = brush_name
-                new_brush.use_custom_icon = True
                 if self.brush_context_mode == 'GPENCIL':
                     new_brush.gpencil_settings.use_material_pin = True
                     new_brush.gpencil_settings.material = new_material
@@ -271,14 +270,17 @@ class ImportBrushOperator(bpy.types.Operator, ImportHelper):
                         new_brush.texture.map_mode = 'TILED'                        
 
                 # Create an icon by scaling the brush texture down
-                icon_obj = img_obj.copy()
-                icon_obj.name = f"icon_{self.brush_context_mode}_{f.name.split('.')[0]}_{i}"
-                icon_filepath = os.path.join(icon_dir, icon_obj.name+'.png')
-                icon_obj.filepath_raw = icon_filepath
-                icon_obj.scale(256,256)
-                icon_obj.save()
-                new_brush.icon_filepath = icon_filepath
-                bpy.data.images.remove(icon_obj)
+                # TODO: possible changes required by Blender 5.0 that should be revisited after its release
+                if hasattr(new_brush, 'use_custom_icon') and hasattr(new_brush, 'icon_filepath'):
+                    new_brush.use_custom_icon = True
+                    icon_obj = img_obj.copy()
+                    icon_obj.name = f"icon_{self.brush_context_mode}_{f.name.split('.')[0]}_{i}"
+                    icon_filepath = os.path.join(icon_dir, icon_obj.name+'.png')
+                    icon_obj.filepath_raw = icon_filepath
+                    icon_obj.scale(256,256)
+                    icon_obj.save()
+                    new_brush.icon_filepath = icon_filepath
+                    bpy.data.images.remove(icon_obj)
                 
                 # Set asset information, necessary for Blender 4.3+
                 new_brush.asset_generate_preview()
@@ -377,9 +379,12 @@ class ImportBrushOperator(bpy.types.Operator, ImportHelper):
                         else:
                             new_brush.spacing = int(orig_params['BrushInterval'])
                     if 'BrushChangePatternColor' in orig_params and orig_params['BrushChangePatternColor'] > 0:
-                        set_brush_color_randomness(new_brush, 'hue', orig_params['BrushHueChange'] / 360.0)
-                        set_brush_color_randomness(new_brush, 'saturation', orig_params['BrushSaturationChange'] / 100.0)
-                        set_brush_color_randomness(new_brush, 'value', orig_params['BrushValueChange'] / 100.0)
+                        if 'BrushHueChange' in orig_params:
+                            set_brush_color_randomness(new_brush, 'hue', orig_params['BrushHueChange'] / 360.0)
+                        if 'BrushSaturationChange' in orig_params:
+                            set_brush_color_randomness(new_brush, 'saturation', orig_params['BrushSaturationChange'] / 100.0)
+                        if 'BrushValueChange' in orig_params:
+                            set_brush_color_randomness(new_brush, 'value', orig_params['BrushValueChange'] / 100.0)
             fd.close()
             
         if failures == 0:
