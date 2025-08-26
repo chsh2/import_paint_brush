@@ -65,7 +65,7 @@ class ImportBrushOperator(bpy.types.Operator, ImportHelper):
         default='TEXTURE'
     )    
     icon_save_path: bpy.props.EnumProperty(
-        name='Icon Folder',
+        name='Save Icons/Images to',
         items=[('PROJECT', 'Folder of Blend File', ''),
                 ('BRUSH', 'Folder of Brush File', ''),
                 ('TMP', 'Temporary Folder', '')],
@@ -83,6 +83,11 @@ class ImportBrushOperator(bpy.types.Operator, ImportHelper):
         default=True,
         description='If enabled, rotate the texture randomly for each drawn stroke point'
     )
+    import_as_sequence: bpy.props.BoolProperty(
+        name='Import Brush as Image Sequence',
+        default=False,
+        description='Import the brush to use with the add-on "Animated Texture Brush". If you do not have this add-on, please do not enable this option'
+    )
 
     def draw(self, context):
         layout = self.layout
@@ -93,20 +98,25 @@ class ImportBrushOperator(bpy.types.Operator, ImportHelper):
         layout.prop(self, 'use_random_rotation')
         layout.label(text = 'Save Icons to: ')
         layout.prop(self, 'icon_save_path', text="")
+        layout.prop(self, 'import_as_sequence')
 
     def execute(self, context):
         import numpy as np
              
         # Determine the location to save icons. Create a new folder if necessary
         if self.icon_save_path=='BRUSH':
-            icon_dir = self.directory
+            save_dir = self.directory
         elif self.icon_save_path=='PROJECT' and len(bpy.path.abspath('//'))>0:
-            icon_dir = bpy.path.abspath('//')
+            save_dir = bpy.path.abspath('//')
         else:
-            icon_dir = bpy.app.tempdir
-        icon_dir = os.path.join(icon_dir, 'bl_paint_brush_icons')
+            save_dir = bpy.app.tempdir
+        icon_dir = os.path.join(save_dir, 'bl_paint_brush_icons')
         if not os.path.exists(icon_dir):
             os.makedirs(icon_dir)
+        if self.import_as_sequence:
+            img_seq_dir = os.path.join(save_dir, 'bl_paint_brush_sequences')
+            if not os.path.exists(img_seq_dir):
+                os.makedirs(img_seq_dir)
 
         # Create objects in the following sequence:
         #    Grease Pencil mode:  Image -> Material -> Brush
@@ -198,8 +208,27 @@ class ImportBrushOperator(bpy.types.Operator, ImportHelper):
                 img_obj = bpy.data.images.new(brush_name, img_W, img_H, alpha=True, float_buffer=False)
                 img_pixels = np.flipud(image_mat).astype(np.float32).ravel() / 255.0
                 img_obj.pixels.foreach_set(img_pixels)
-                img_obj.pack()
                 img_obj.alpha_mode = 'PREMUL'
+                
+                # In the image sequence mode, save all images, and generate only one brush by reloading images as a sequence
+                # In other modes, pack the image into the .blend file
+                if self.import_as_sequence:
+                    seq_path = os.path.join(img_seq_dir, f'{f.name}.{(i+1):04d}.png')
+                    img_obj.filepath_raw = seq_path
+                    img_obj.save()
+                    bpy.data.images.remove(img_obj)
+                    
+                    if i != len(parser.brush_mats)-1:
+                        continue
+                    else:
+                        bpy.ops.image.open(
+                            filepath=seq_path, directory=img_seq_dir,
+                            files=[{"name":f'{f.name}.{(j+1):04d}.png'} for j in range(i+1)],
+                            relative_path=True
+                        )
+                        img_obj = bpy.data.images[f'{f.name}.0001.png']
+                else:
+                    img_obj.pack()
                 
                 # Create a Blender texture
                 if self.brush_context_mode != 'GPENCIL':
@@ -210,6 +239,13 @@ class ImportBrushOperator(bpy.types.Operator, ImportHelper):
                         tex_obj.use_alpha = True
                     else:
                         tex_obj.use_alpha = False
+                    
+                    if self.import_as_sequence:
+                        tex_obj.image_user.use_auto_refresh = True
+                        tex_obj.image_user.frame_duration = len(parser.brush_mats)
+                        tex_obj.image_user.frame_start = 1
+                        tex_obj.image_user.frame_offset = 0
+                        tex_obj.image_user.use_cyclic = True
                         
                 # Create a Blender Grease Pencil material
                 else:
@@ -273,8 +309,13 @@ class ImportBrushOperator(bpy.types.Operator, ImportHelper):
                 # TODO: possible changes required by Blender 5.0 that should be revisited after its release
                 if hasattr(new_brush, 'use_custom_icon') and hasattr(new_brush, 'icon_filepath'):
                     new_brush.use_custom_icon = True
-                    icon_obj = img_obj.copy()
-                    icon_obj.name = f"icon_{self.brush_context_mode}_{f.name.split('.')[0]}_{i}"
+                    icon_name = f"icon_{self.brush_context_mode}_{f.name.split('.')[0]}_{i}"
+                    if self.import_as_sequence:
+                        icon_obj = bpy.data.images.new(icon_name, img_W, img_H, alpha=True, float_buffer=False)
+                        icon_obj.pixels.foreach_set(img_pixels)
+                    else:
+                        icon_obj = img_obj.copy()
+                        icon_obj.name = icon_name
                     icon_filepath = os.path.join(icon_dir, icon_obj.name+'.png')
                     icon_obj.filepath_raw = icon_filepath
                     icon_obj.scale(256,256)
