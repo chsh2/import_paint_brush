@@ -306,27 +306,32 @@ class ImportBrushOperator(bpy.types.Operator, ImportHelper):
                         new_brush.texture.map_mode = 'TILED'                        
 
                 # Create an icon by scaling the brush texture down
-                # TODO: possible changes required by Blender 5.0 that should be revisited after its release
+                icon_name = f"icon_{self.brush_context_mode}_{f.name.split('.')[0]}_{i}"
+                if self.import_as_sequence:
+                    icon_obj = bpy.data.images.new(icon_name, img_W, img_H, alpha=True, float_buffer=False)
+                    icon_obj.pixels.foreach_set(img_pixels)
+                else:
+                    icon_obj = img_obj.copy()
+                    icon_obj.name = icon_name
+                icon_filepath = os.path.join(icon_dir, icon_obj.name+'.png')
+                icon_obj.filepath_raw = icon_filepath
+                icon_obj.scale(256,256)
+                icon_obj.save()
+
+                # Setting icon for Blender 3.x/4.x
                 if hasattr(new_brush, 'use_custom_icon') and hasattr(new_brush, 'icon_filepath'):
                     new_brush.use_custom_icon = True
-                    icon_name = f"icon_{self.brush_context_mode}_{f.name.split('.')[0]}_{i}"
-                    if self.import_as_sequence:
-                        icon_obj = bpy.data.images.new(icon_name, img_W, img_H, alpha=True, float_buffer=False)
-                        icon_obj.pixels.foreach_set(img_pixels)
-                    else:
-                        icon_obj = img_obj.copy()
-                        icon_obj.name = icon_name
-                    icon_filepath = os.path.join(icon_dir, icon_obj.name+'.png')
-                    icon_obj.filepath_raw = icon_filepath
-                    icon_obj.scale(256,256)
-                    icon_obj.save()
                     new_brush.icon_filepath = icon_filepath
-                    bpy.data.images.remove(icon_obj)
+                    new_brush.asset_generate_preview()
                 
-                # Set asset information, necessary for Blender 4.3+
-                new_brush.asset_generate_preview()
                 new_brush.asset_mark()
                 new_brush.asset_data.description = f'Converted from: {f.name}'
+
+                # Setting icon for Blender 5.x
+                if bpy.app.version >= (5, 0, 0):
+                    with bpy.context.temp_override(id=new_brush):
+                        bpy.ops.ed.lib_id_load_custom_preview(filepath=icon_filepath)
+                bpy.data.images.remove(icon_obj)
 
                 # Parse and convert Photoshop brush parameters
                 if isinstance(parser, Abr6Parser) and orig_params:
