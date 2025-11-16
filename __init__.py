@@ -4,7 +4,7 @@ bl_info = {
     "author" : "https://github.com/chsh2/import_paint_brush/",
     "description" : "Extract textures from brush files exported by painting software and use them to create Blender brushes",
     "blender" : (3, 3, 0),
-    "version" : (0, 3, 0),
+    "version" : (0, 4, 0),
     "location" : "File > Import; Brush Settings > Texture > Brush Utilities",
     "warning" : "This addon is still in an early stage of development",
     "doc_url": "",
