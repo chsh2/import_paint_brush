@@ -1,0 +1,32 @@
+schema_version = "1.0.0"
+
+id = "import_paint_brush"
+version = "0.4.0"
+name = "Import Paint Brushes"
+tagline = "Parsing several brush formats of painting software"
+maintainer = "chsh2"
+type = "add-on"
+website = "https://github.com/chsh2/import_paint_brush"
+tags = ["Import-Export", "Paint", "Sculpt", "Grease Pencil"]
+blender_version_min = "4.2.0"
+license = [
+  "SPDX:GPL-3.0-or-later",
+]
+
+[permissions]
+files = "Import brush files from disk"
+
+[build]
+paths_exclude_pattern = [
+  "__pycache__/",
+  "*.py[cod]",
+  "/.git/",
+  "/.github/",
+  ".git*",
+  ".vscode/",
+  "/scripts/",
+  "/tests/",
+  "/docs/",
+  "/*.md",
+  "/*.zip",
+]

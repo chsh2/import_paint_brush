@@ -2,4 +2,4 @@
 __pycache__/
 *.py[cod]
 /tests/
-import_paint_brush.zip
+*.zip
