@@ -14,9 +14,8 @@ bl_info = {
 }
 
 import bpy
-from . import auto_load
-
-auto_load.init()
+from .operators.brush_import import ImportBrushOperator
+from .operators.image_utils import ColorFillOperator, AlphaEdgeSoftenOperator, AlphaClipOperator, InvertChannelOperator
 
 class NODE_MT_paint_brush_tex_utils_submenu(bpy.types.Menu):
     bl_label = "Brush Utilities"
@@ -50,7 +49,11 @@ def menu_func_import(self, context):
     self.layout.operator('paint_brush.import_brushes', icon='BRUSHES_ALL')
 
 def register():
-    auto_load.register()
+    bpy.utils.register_class(ImportBrushOperator)
+    bpy.utils.register_class(AlphaEdgeSoftenOperator)
+    bpy.utils.register_class(AlphaClipOperator)
+    bpy.utils.register_class(ColorFillOperator)
+    bpy.utils.register_class(InvertChannelOperator)
     bpy.utils.register_class(NODE_MT_paint_brush_tex_utils_submenu)
     bpy.utils.register_class(NODE_MT_paint_brush_mask_utils_submenu)
     bpy.types.IMAGE_PT_tools_brush_texture.append(menu_func_tex_utils)
@@ -60,7 +63,11 @@ def register():
     bpy.types.TOPBAR_MT_file_import.append(menu_func_import)
     
 def unregister():
-    auto_load.unregister()
+    bpy.utils.unregister_class(ImportBrushOperator)
+    bpy.utils.unregister_class(AlphaEdgeSoftenOperator)
+    bpy.utils.unregister_class(AlphaClipOperator)
+    bpy.utils.unregister_class(ColorFillOperator)
+    bpy.utils.unregister_class(InvertChannelOperator)
     bpy.utils.unregister_class(NODE_MT_paint_brush_tex_utils_submenu)
     bpy.utils.unregister_class(NODE_MT_paint_brush_mask_utils_submenu)
     bpy.types.IMAGE_PT_tools_brush_texture.remove(menu_func_tex_utils)
