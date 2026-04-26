@@ -12,6 +12,8 @@ The add-on works with Blender 3.3 ~ 5.0:
 1. Download the archive file from the GitHub Release page. Do not unzip it.
 2. In Blender, open `[Edit]->[Preferences]->[Add-ons]` and click the Install button to load the archive. Enable the installed add-on.
 
+> Alternatively, the add-on is also available at the [official extensions platform](https://extensions.blender.org/add-ons/import-paint-brush/). The functionalities are the same with the GitHub version, except that it requires Blender 4.2 or later.
+
 ## Usage
 
 ### Demo Video
