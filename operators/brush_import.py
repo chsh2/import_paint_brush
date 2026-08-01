@@ -16,7 +16,7 @@ def brush_filter(brush: bpy.types.Brush, keyword):
         return brush.use_paint_vertex and brush.vertex_tool == 'DRAW'
     return False
 
-def new_gp_brush(name):
+def new_gp_brush(name, stroke_type="STROKE"):
     """Creation of a new Grease Pencil brush should consider the difference between GPv2 and GPv3"""
     if bpy.app.version >= (4, 3, 0):
         res = bpy.data.brushes.new(name, mode='PAINT_GREASE_PENCIL')
@@ -24,6 +24,8 @@ def new_gp_brush(name):
         res.gpencil_settings.vertex_color_factor = 1
         res.gpencil_settings.vertex_mode = 'BOTH'
         res.gpencil_settings.aspect = (1.0,1.0)
+        if hasattr(res.gpencil_settings, "stroke_type"):
+            res.gpencil_settings.stroke_type = stroke_type
     else:
         src = [brush for brush in bpy.data.brushes if brush.use_paint_grease_pencil and brush.gpencil_tool=='DRAW']
         if len(src) < 1:
@@ -273,7 +275,7 @@ class ImportBrushOperator(bpy.types.Operator, ImportHelper):
                 if self.template_brush != '':
                     new_brush = bpy.data.brushes[template_brush_name].copy()
                 elif self.brush_context_mode == 'GPENCIL':
-                    new_brush = new_gp_brush(brush_name)
+                    new_brush = new_gp_brush(brush_name, 'FILL' if orig_type == 'GRAIN' else 'STROKE')
                 elif self.brush_context_mode == 'TEXTURE':
                     new_brush = bpy.data.brushes.new(brush_name, mode='TEXTURE_PAINT')
                 elif self.brush_context_mode == 'SCULPT':
