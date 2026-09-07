@@ -39,9 +39,8 @@ class BundleProcessor():
 
         files = os.listdir(brushes_dir)
         for f in files:
-            file_path = os.path.join(brushes_dir, f)
-            if os.path.isfile(file_path) and (file_path.endswith(".gbr") or file_path.endswith(".gih")):
-                res.append(file_path)
+            if f.endswith(".gbr") or f.endswith(".gih"):
+                res.append((brushes_dir, f))
         return res
 
     def get_kpp_brush_files(self):
@@ -55,7 +54,6 @@ class BundleProcessor():
 
         files = os.listdir(presets_dir)
         for f in files:
-            file_path = os.path.join(presets_dir, f)
-            if os.path.isfile(file_path) and file_path.endswith(".kpp"):
-                res.append(file_path)
+            if f.endswith(".kpp"):
+                res.append((brushes_dir, f))
         return res

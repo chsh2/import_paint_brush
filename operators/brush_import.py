@@ -55,7 +55,7 @@ class ImportBrushOperator(bpy.types.Operator, ImportHelper):
     files: bpy.props.CollectionProperty(type=bpy.types.OperatorFileListElement)
     filepath = bpy.props.StringProperty(name="File Path", subtype='FILE_PATH')
     filter_glob: bpy.props.StringProperty(
-        default='*.gbr;*.gih;*.abr;*.brushset;*.brush;*.sut',
+        default='*.gbr;*.gih;*.abr;*.brushset;*.brush;*.sut;*.kpp;*.bundle',
         options={'HIDDEN'}
     )
     brush_context_mode: bpy.props.EnumProperty(
@@ -72,36 +72,58 @@ class ImportBrushOperator(bpy.types.Operator, ImportHelper):
                 ('BRUSH', 'Folder of Brush File', ''),
                 ('TMP', 'Temporary Folder', '')],
         default='BRUSH',
-        description='The directory to save thumbnail images, which will be displayed as brush icons'
+        description='The directory to save thumbnail images, which are required to display brush icons for lower versions of Blender'
     )
     template_brush: bpy.props.StringProperty(
-            name='Template Brush',
-            description='If non-empty, copy attributes from an existing brush to create new ones',
-            default='',
-            search=lambda self, context, edit_text: [brush.name for brush in bpy.data.brushes if brush_filter(brush, self.brush_context_mode)]
+        name='Template Brush',
+        description='If non-empty, copy attributes from an existing brush for any attributes not specified or not parsed from the brush file',
+        default='',
+        search=lambda self, context, edit_text: [brush.name for brush in bpy.data.brushes if brush_filter(brush, self.brush_context_mode)]
     )
     use_random_rotation: bpy.props.BoolProperty(
-        name='Random Rotation',
+        name='Random Rotation by Default',
         default=True,
-        description='If enabled, rotate the texture randomly for each drawn stroke point'
+        description='Determine whether to rotate the texture randomly for each drawn stroke point when the brush file itself does not specify it, or related attributes cannot be parsed'
+    )
+    krita_bundle_import_option: bpy.props.EnumProperty(
+        name='Import Krita Bundles',
+        items=[('TIPS', 'As GIMP Brushes', 'Extract and import .gih/.gbr files from the bundle'),
+                ('PRESETS', 'As Krita Brushes', 'Extract .kpp brush presets from the bundle'),
+                ],
+        default='PRESETS',
+        description='Choose how to interpret a Krita .bundle file'
     )
     import_as_sequence: bpy.props.BoolProperty(
-        name='Import Brush as Image Sequence',
+        name='Animated Brush as Image Sequence',
         default=False,
-        description='Import the brush to use with the add-on "Animated Texture Brush". If you do not have this add-on, please do not enable this option'
+        description='Create a multi-frame brush to use with the add-on "Animated Texture Brush". If you do not have this add-on, please do not enable this option. The multi-frame brush is a feature of .sut and .gih formats but not natively supported by Blender'
     )
 
     def draw(self, context):
         layout = self.layout
-        layout.label(text='Create New Brushes for:')
-        layout.prop(self, 'brush_context_mode')
-        layout.label(text='Template Brush:')
-        layout.prop(self, 'template_brush', text="", icon='BRUSH_DATA')
-        layout.prop(self, 'use_random_rotation')
-        layout.label(text = 'Save Icons to: ')
-        layout.prop(self, 'icon_save_path', text="")
-        layout.prop(self, 'import_as_sequence')
+        layout.label(text="Create New Brushes for:")
+        layout.props_enum(self, 'brush_context_mode')
 
+        layout.label(text='Attributes Parsing:')
+        box = layout.box()
+        row = box.row()
+        row.label(text="Template Brush:")
+        row.prop(self, 'template_brush', text="", icon='BRUSH_DATA')
+        box.prop(self, 'use_random_rotation')
+
+        layout.label(text="Per-Format Options:")
+        box = layout.box()
+        row = box.row()
+        row.label(text="Import Krita Bundle: ")
+        row.prop(self, 'krita_bundle_import_option', text="")
+        box.prop(self, 'import_as_sequence')
+
+        layout.label(text="Resource Management:")
+        box = layout.box()
+        row = box.row()
+        row.label(text="Save Icons to: ")
+        row.prop(self, 'icon_save_path', text="")
+        
     def execute(self, context):
         import numpy as np
              
@@ -120,51 +142,66 @@ class ImportBrushOperator(bpy.types.Operator, ImportHelper):
             if not os.path.exists(img_seq_dir):
                 os.makedirs(img_seq_dir)
 
+        # Unarchive Krita bundles as separate brushes
+        total_brushes = 0
+        failures = 0
+        brush_files = [(str(self.directory), str(f.name)) for f in self.files if not f.name.endswith('.bundle')]
+        for f in self.files:
+            if not f.name.endswith('.bundle'):
+                continue
+            bundle_processor = BundleProcessor(os.path.join(self.directory, f.name))
+            if not bundle_processor.unarchive(bpy.app.tempdir):
+                failures += 1
+                continue
+            if self.krita_bundle_import_option == 'TIPS':
+                brush_files += bundle_processor.get_gimp_brush_files()
+            else:
+                #TODO
+                pass
+
         # Create objects in the following sequence:
         #    Grease Pencil mode:  Image -> Material -> Brush
         #    Other modes:         Image -> Texture -> Brush
         
-        total_brushes = 0
-        failures = 0
-        for f in self.files:
+        for d,f_name in brush_files:
             # Determine the software that generates the brush file
-            filename = os.path.join(self.directory, f.name)
+            filename = os.path.join(d, f_name)
             fd = open(filename, 'rb')
             parser = None
 
             try:
-                if f.name.endswith('.gbr'):  
+                if f_name.endswith('.gbr'):  
                     parser = GbrParser(fd.read())
-                elif f.name.endswith('.gih'):
+                elif f_name.endswith('.gih'):
                     parser = GihParser(fd.read())
-                elif f.name.endswith('.abr'):
+                elif f_name.endswith('.abr'):
                     bytes = fd.read()
                     major_version = struct.unpack_from('>H',bytes)[0]
                     if major_version > 5:
                         parser = Abr6Parser(bytes)
                     else:
                         parser = Abr1Parser(bytes)
-                elif f.name.endswith('.brushset') or f.name.endswith('.brush'):
+                elif f_name.endswith('.brushset') or f_name.endswith('.brush'):
                     parser = BrushsetParser(filename)
-                elif f.name.endswith('.sut'):
+                elif f_name.endswith('.sut'):
                     parser = SutParser(filename)
 
                 if not parser or not parser.check():
-                    self.report({"ERROR"}, f"The brush file {f.name} cannot be recognized.")
+                    self.report({"ERROR"}, f"The brush file {f_name} cannot be recognized.")
                     continue
                 parser.parse()
                 
             except Exception as e:
-                self.report({"ERROR"}, f"Failed to parse the brush file {f.name}: {e}")
+                self.report({"ERROR"}, f"Failed to parse the brush file {f_name}: {e}")
                 failures += 1
                 continue
 
             total_brushes += len(parser.brush_mats)
             for i,brush_mat in enumerate(parser.brush_mats):
                 if len(parser.brush_mats) == 1:
-                    brush_name = f.name.split('.')[0]
+                    brush_name = f_name.split('.')[0]
                 else:
-                    brush_name = f.name.split('.')[0] + '_' + str(i)
+                    brush_name = f_name.split('.')[0] + '_' + str(i)
                 img_H, img_W = brush_mat.shape[0], brush_mat.shape[1]
 
                 # Attempt to read original parameters data
@@ -215,7 +252,7 @@ class ImportBrushOperator(bpy.types.Operator, ImportHelper):
                 # In the image sequence mode, save all images, and generate only one brush by reloading images as a sequence
                 # In other modes, pack the image into the .blend file
                 if self.import_as_sequence:
-                    seq_path = os.path.join(img_seq_dir, f'{f.name}.{(i+1):04d}.png')
+                    seq_path = os.path.join(img_seq_dir, f'{f_name}.{(i+1):04d}.png')
                     img_obj.filepath_raw = seq_path
                     img_obj.save()
                     bpy.data.images.remove(img_obj)
@@ -225,10 +262,10 @@ class ImportBrushOperator(bpy.types.Operator, ImportHelper):
                     else:
                         bpy.ops.image.open(
                             filepath=seq_path, directory=img_seq_dir,
-                            files=[{"name":f'{f.name}.{(j+1):04d}.png'} for j in range(i+1)],
+                            files=[{"name":f'{f_name}.{(j+1):04d}.png'} for j in range(i+1)],
                             relative_path=True
                         )
-                        img_obj = bpy.data.images[f'{f.name}.0001.png']
+                        img_obj = bpy.data.images[f'{f_name}.0001.png']
                 else:
                     img_obj.pack()
                 
@@ -264,8 +301,12 @@ class ImportBrushOperator(bpy.types.Operator, ImportHelper):
                         new_material = bpy.data.materials.new(brush_name)
                         bpy.data.materials.create_gpencil_data(new_material)
                         new_material.grease_pencil.show_stroke = True
+                        new_material.grease_pencil.show_fill = False
                         new_material.grease_pencil.mode = 'BOX'
                         new_material.grease_pencil.stroke_style = 'TEXTURE'
+                        if hasattr(new_material.grease_pencil, 'placement_mode'):
+                            new_material.grease_pencil.placement_mode = 'COUNT'
+                            new_material.grease_pencil.placement_count = 1
                         new_material.grease_pencil.mix_stroke_factor = 1
                         new_material.grease_pencil.stroke_image = img_obj
                     
@@ -308,7 +349,7 @@ class ImportBrushOperator(bpy.types.Operator, ImportHelper):
                         new_brush.texture.map_mode = 'TILED'                        
 
                 # Create an icon by scaling the brush texture down
-                icon_name = f"icon_{self.brush_context_mode}_{f.name.split('.')[0]}_{i}"
+                icon_name = f"icon_{self.brush_context_mode}_{f_name.split('.')[0]}_{i}"
                 if self.import_as_sequence:
                     icon_obj = bpy.data.images.new(icon_name, img_W, img_H, alpha=True, float_buffer=False)
                     icon_obj.pixels.foreach_set(img_pixels)
@@ -327,7 +368,7 @@ class ImportBrushOperator(bpy.types.Operator, ImportHelper):
                     new_brush.asset_generate_preview()
                 
                 new_brush.asset_mark()
-                new_brush.asset_data.description = f'Converted from: {f.name}'
+                new_brush.asset_data.description = f'Converted from: {f_name}'
 
                 # Setting icon for Blender 5.x
                 if bpy.app.version >= (5, 0, 0):
