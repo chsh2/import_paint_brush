@@ -6,14 +6,24 @@ from ..brush_file_parsers import *
 
 def brush_filter(brush: bpy.types.Brush, keyword):
     """Show users only the relevant brushes"""
+
+    def get_brush_type(brush, keyword):
+        # API change in Blender 5.0
+        old_attr = f'{keyword}_tool'
+        new_attr = f'{keyword}_brush_type'
+        if hasattr(brush, old_attr):
+            return getattr(brush, old_attr)
+        if hasattr(brush, new_attr):
+            return getattr(brush, new_attr)
+
     if keyword == 'TEXTURE':
-        return brush.use_paint_image and brush.image_tool == 'DRAW'
+        return brush.use_paint_image and get_brush_type(brush, 'image') == 'DRAW'
     elif keyword == 'SCULPT':
-        return brush.use_paint_sculpt and brush.sculpt_tool in {'DRAW', 'PAINT'}
+        return brush.use_paint_sculpt and get_brush_type(brush, 'sculpt') in {'DRAW', 'PAINT'}
     elif keyword == 'GPENCIL':
-        return brush.use_paint_grease_pencil and brush.gpencil_tool == 'DRAW'
+        return brush.use_paint_grease_pencil and get_brush_type(brush, 'gpencil') == 'DRAW'
     elif keyword == 'VERTEX':
-        return brush.use_paint_vertex and brush.vertex_tool == 'DRAW'
+        return brush.use_paint_vertex and get_brush_type(brush, 'vertex') == 'DRAW'
     return False
 
 def new_gp_brush(name, stroke_type="STROKE"):
@@ -47,7 +57,7 @@ def set_brush_color_randomness(brush, attribute, value):
 class ImportBrushOperator(bpy.types.Operator, ImportHelper):
     """Extract textures from several painting software brush formats to create Blender brushes"""
     bl_idname = "paint_brush.import_brushes"
-    bl_label = "Paint Brushes (.abr/.gbr/.brushset/.sut)"
+    bl_label = "Paint Brushes (.abr/.gbr/.brushset/.sut/.kpp)"
     bl_category = 'View'
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -65,7 +75,7 @@ class ImportBrushOperator(bpy.types.Operator, ImportHelper):
                 ('GPENCIL', 'Grease Pencil', ''),
                 ('VERTEX', 'Vertex Paint', '')],
         default='TEXTURE'
-    )    
+    )
     icon_save_path: bpy.props.EnumProperty(
         name='Save Icons/Images to',
         items=[('PROJECT', 'Folder of Blend File', ''),
@@ -101,6 +111,11 @@ class ImportBrushOperator(bpy.types.Operator, ImportHelper):
 
     def draw(self, context):
         layout = self.layout
+
+        current_template = self.template_brush
+        if len(current_template) > 0 and (current_template not in bpy.data.brushes or not brush_filter(bpy.data.brushes[current_template], self.brush_context_mode)):
+            self.template_brush = ''
+
         layout.label(text="Create New Brushes for:")
         layout.props_enum(self, 'brush_context_mode')
 
@@ -123,10 +138,10 @@ class ImportBrushOperator(bpy.types.Operator, ImportHelper):
         row = box.row()
         row.label(text="Save Icons to: ")
         row.prop(self, 'icon_save_path', text="")
-        
+
     def execute(self, context):
         import numpy as np
-             
+
         # Determine the location to save icons. Create a new folder if necessary
         if self.icon_save_path=='BRUSH':
             save_dir = self.directory
@@ -156,13 +171,12 @@ class ImportBrushOperator(bpy.types.Operator, ImportHelper):
             if self.krita_bundle_import_option == 'TIPS':
                 brush_files += bundle_processor.get_gimp_brush_files()
             else:
-                #TODO
-                pass
+                brush_files += bundle_processor.get_kpp_brush_files()
 
         # Create objects in the following sequence:
         #    Grease Pencil mode:  Image -> Material -> Brush
         #    Other modes:         Image -> Texture -> Brush
-        
+
         for d,f_name in brush_files:
             # Determine the software that generates the brush file
             filename = os.path.join(d, f_name)
@@ -170,7 +184,7 @@ class ImportBrushOperator(bpy.types.Operator, ImportHelper):
             parser = None
 
             try:
-                if f_name.endswith('.gbr'):  
+                if f_name.endswith('.gbr'):
                     parser = GbrParser(fd.read())
                 elif f_name.endswith('.gih'):
                     parser = GihParser(fd.read())
@@ -181,16 +195,18 @@ class ImportBrushOperator(bpy.types.Operator, ImportHelper):
                         parser = Abr6Parser(bytes)
                     else:
                         parser = Abr1Parser(bytes)
+                elif f_name.endswith('.kpp'):
+                    parser = KppParser(fd.read(), d)
                 elif f_name.endswith('.brushset') or f_name.endswith('.brush'):
                     parser = BrushsetParser(filename)
                 elif f_name.endswith('.sut'):
                     parser = SutParser(filename)
 
                 if not parser or not parser.check():
-                    self.report({"ERROR"}, f"The brush file {f_name} cannot be recognized.")
+                    self.report({"ERROR"}, f"The brush file {f_name} cannot be recognized. Skipped this file.")
                     continue
                 parser.parse()
-                
+
             except Exception as e:
                 self.report({"ERROR"}, f"Failed to parse the brush file {f_name}: {e}")
                 failures += 1
@@ -231,7 +247,7 @@ class ImportBrushOperator(bpy.types.Operator, ImportHelper):
                             'shapeInverted' in orig_params and \
                             orig_params['shapeInverted']:
                                 image_mat = 255 - image_mat
-                                
+
                 # Adjust the ratio of the texture to 1:1
                 # Also need to fit image inside a round shape except for Grease Pencil mode
                 img_L = max(img_H, img_W)
@@ -241,14 +257,14 @@ class ImportBrushOperator(bpy.types.Operator, ImportHelper):
                 square_img_mat = np.zeros((img_L, img_L, 4))
                 square_img_mat[offset_H:offset_H+img_H, offset_W:offset_W+img_W, :] = image_mat
                 image_mat, img_H, img_W = square_img_mat, img_L, img_L
-                    
+
                 # Convert image to Blender data block
                 brush_name += '.' + self.brush_context_mode
                 img_obj = bpy.data.images.new(brush_name, img_W, img_H, alpha=True, float_buffer=False)
                 img_pixels = np.flipud(image_mat).astype(np.float32).ravel() / 255.0
                 img_obj.pixels.foreach_set(img_pixels)
                 img_obj.alpha_mode = 'PREMUL'
-                
+
                 # In the image sequence mode, save all images, and generate only one brush by reloading images as a sequence
                 # In other modes, pack the image into the .blend file
                 if self.import_as_sequence:
@@ -256,7 +272,7 @@ class ImportBrushOperator(bpy.types.Operator, ImportHelper):
                     img_obj.filepath_raw = seq_path
                     img_obj.save()
                     bpy.data.images.remove(img_obj)
-                    
+
                     if i != len(parser.brush_mats)-1:
                         continue
                     else:
@@ -268,7 +284,7 @@ class ImportBrushOperator(bpy.types.Operator, ImportHelper):
                         img_obj = bpy.data.images[f'{f_name}.0001.png']
                 else:
                     img_obj.pack()
-                
+
                 # Create a Blender texture
                 if self.brush_context_mode != 'GPENCIL':
                     tex_obj = bpy.data.textures.new(brush_name, 'IMAGE')
@@ -278,14 +294,14 @@ class ImportBrushOperator(bpy.types.Operator, ImportHelper):
                         tex_obj.use_alpha = True
                     else:
                         tex_obj.use_alpha = False
-                    
+
                     if self.import_as_sequence:
                         tex_obj.image_user.use_auto_refresh = True
                         tex_obj.image_user.frame_duration = len(parser.brush_mats)
                         tex_obj.image_user.frame_start = 1
                         tex_obj.image_user.frame_offset = 0
                         tex_obj.image_user.use_cyclic = True
-                        
+
                 # Create a Blender Grease Pencil material
                 else:
                     if orig_type == 'GRAIN':
@@ -309,7 +325,7 @@ class ImportBrushOperator(bpy.types.Operator, ImportHelper):
                             new_material.grease_pencil.placement_count = 1
                         new_material.grease_pencil.mix_stroke_factor = 1
                         new_material.grease_pencil.stroke_image = img_obj
-                    
+
                 # Create a Blender brush
                 template_brush_name = self.template_brush
                 new_brush = None
@@ -326,7 +342,7 @@ class ImportBrushOperator(bpy.types.Operator, ImportHelper):
                 if new_brush is None:
                     self.report({"ERROR"}, f"Cannot create a new brush for {brush_name}.")
                     return {'FINISHED'}
-                
+
                 # Set basic parameters for the brush of different modes
                 new_brush.name = brush_name
                 if self.brush_context_mode == 'GPENCIL':
@@ -336,17 +352,17 @@ class ImportBrushOperator(bpy.types.Operator, ImportHelper):
                     new_brush.gpencil_settings.uv_random = 1.0
                     new_brush.gpencil_settings.hardness = 1.0
                     new_brush.gpencil_settings.simplify_factor = 0.0
-                elif orig_type != 'GRAIN':
-                    new_brush.texture = tex_obj
-                    new_brush.texture_slot.map_mode = 'VIEW_PLANE'
-                    new_brush.texture_slot.use_random = self.use_random_rotation
-                else:
+                elif orig_type == 'GRAIN':
                     if self.brush_context_mode == 'TEXTURE':
                         new_brush.mask_texture = tex_obj
                         new_brush.mask_texture_slot.map_mode = 'TILED'
                     else:
                         new_brush.texture = tex_obj
-                        new_brush.texture.map_mode = 'TILED'                        
+                        new_brush.texture.map_mode = 'TILED'
+                else:
+                    new_brush.texture = tex_obj
+                    new_brush.texture_slot.map_mode = 'VIEW_PLANE'
+                    new_brush.texture_slot.use_random = self.use_random_rotation
 
                 # Create an icon by scaling the brush texture down
                 icon_name = f"icon_{self.brush_context_mode}_{f_name.split('.')[0]}_{i}"
@@ -366,7 +382,7 @@ class ImportBrushOperator(bpy.types.Operator, ImportHelper):
                     new_brush.use_custom_icon = True
                     new_brush.icon_filepath = icon_filepath
                     new_brush.asset_generate_preview()
-                
+
                 new_brush.asset_mark()
                 new_brush.asset_data.description = f'Converted from: {f_name}'
 
@@ -400,7 +416,7 @@ class ImportBrushOperator(bpy.types.Operator, ImportHelper):
                         set_brush_color_randomness(new_brush, 'saturation', orig_params['saturationJitter'].value * 0.01)
                     if 'brightnessJitter' in orig_params:
                         set_brush_color_randomness(new_brush, 'value', orig_params['brightnessJitter'].value * 0.01)
-                    
+
                 # Parse and convert Procreate brush parameters
                 if isinstance(parser, BrushsetParser) and orig_params:
                     if 'paintSize' in orig_params:
@@ -435,7 +451,7 @@ class ImportBrushOperator(bpy.types.Operator, ImportHelper):
                         set_brush_color_randomness(new_brush, 'saturation', orig_params['dynamicsJitterStrokeSaturation'])
                     if 'dynamicsJitterStrokeDarkness' in orig_params:
                         set_brush_color_randomness(new_brush, 'value', orig_params['dynamicsJitterStrokeDarkness'])
-                            
+
                 # Parse and convert SUT brush parameters
                 if isinstance(parser, SutParser) and orig_params:
                     if 'TextureScale2' in orig_params:
@@ -475,9 +491,9 @@ class ImportBrushOperator(bpy.types.Operator, ImportHelper):
                         if 'BrushValueChange' in orig_params:
                             set_brush_color_randomness(new_brush, 'value', orig_params['BrushValueChange'] / 100.0)
             fd.close()
-            
+
         if failures == 0:
-            self.report({"INFO"}, f'Imported {total_brushes} brush texture(s).') 
+            self.report({"INFO"}, f'Imported {total_brushes} brush texture(s).')
         else:
-            self.report({"WARNING"}, f'Imported {total_brushes} brush texture(s). Failed to recognize {failures} brush file(s).') 
+            self.report({"WARNING"}, f'Imported {total_brushes} brush texture(s). Failed to recognize {failures} brush file(s).')
         return {'FINISHED'}

@@ -55,5 +55,5 @@ class BundleProcessor():
         files = os.listdir(presets_dir)
         for f in files:
             if f.endswith(".kpp"):
-                res.append((brushes_dir, f))
+                res.append((presets_dir, f))
         return res
