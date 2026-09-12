@@ -53,6 +53,10 @@ def set_brush_color_randomness(brush, attribute, value):
     legacy_attr = f'random_{attribute}_factor'
     if hasattr(brush, 'gpencil_settings') and hasattr(brush.gpencil_settings, legacy_attr):
         setattr(brush.gpencil_settings, legacy_attr, value)
+        brush.gpencil_settings.use_settings_random |= value > 1e-3
+    
+    if hasattr(brush, 'use_color_jitter'):
+        brush.use_color_jitter |= value > 1e-3
 
 class ImportBrushOperator(bpy.types.Operator, ImportHelper):
     """Extract textures from several painting software brush formats to create Blender brushes"""
@@ -399,20 +403,48 @@ class ImportBrushOperator(bpy.types.Operator, ImportHelper):
                         if 'diameter' in orig_params['brush']:
                             new_brush.size = int(orig_params['brush']['diameter'].value)
                         if 'spacing' in orig_params['brush']:
-                            new_brush.spacing = int(orig_params['brush']['spacing'].value)
+                            new_brush.spacing = int(orig_params['brush']['spacing'].value / 2)
+                        if 'angle' in orig_params['brush']:
+                            converted_rad = orig_params['brush']['angle'].value * np.pi / 180.0
+                            if self.brush_context_mode == 'GPENCIL':
+                                new_material.grease_pencil.alignment_rotation = - converted_rad
+                            else:
+                                new_brush.texture_slot.angle = np.pi / 2.0 - converted_rad
+
                     if 'toolOptions' in orig_params:
                         if 'Opct' in orig_params['toolOptions']:
                             if self.brush_context_mode == 'GPENCIL':
                                 new_brush.gpencil_settings.pen_strength = orig_params['toolOptions']['Opct'].value * 0.01
                             new_brush.strength = orig_params['toolOptions']['Opct'].value * 0.01
+
                     if 'sizeControl' in orig_params:
                         if 'jitter' in orig_params['sizeControl']:
+                            rand_factor = orig_params['sizeControl']['jitter'].value * 0.01
                             if self.brush_context_mode == 'GPENCIL':
-                                new_brush.gpencil_settings.random_pressure = orig_params['sizeControl']['jitter'].value * 0.01
+                                new_brush.gpencil_settings.use_settings_random |= rand_factor > 1e-3
+                                new_brush.gpencil_settings.random_pressure = rand_factor
+                        if orig_params['sizeControl'].get('control', 0) == 2:
+                            new_brush.use_pressure_size = True
+
                     if 'opacityDynamics' in orig_params:
                         if 'jitter' in orig_params['opacityDynamics']:
+                            rand_factor = orig_params['opacityDynamics']['jitter'].value * 0.01
                             if self.brush_context_mode == 'GPENCIL':
-                                new_brush.gpencil_settings.random_strength = orig_params['opacityDynamics']['jitter'].value * 0.01
+                                new_brush.gpencil_settings.use_settings_random |= rand_factor > 1e-3
+                                new_brush.gpencil_settings.random_strength = rand_factor
+                        if orig_params['opacityDynamics'].get('control', 0) == 2:
+                            new_brush.use_pressure_strength = True
+                    
+                    if 'angleDynamics' in orig_params:
+                        if 'jitter' in orig_params['angleDynamics']:
+                            rand_factor = orig_params['angleDynamics']['jitter'].value * 0.01
+                            if self.brush_context_mode == 'GPENCIL':
+                                new_brush.gpencil_settings.use_settings_random |= rand_factor > 1e-3
+                                new_brush.gpencil_settings.uv_random = rand_factor
+                            else:
+                                new_brush.texture_slot.use_random |= rand_factor > 1e-3
+                                new_brush.texture_slot.random_angle = rand_factor * 2 * np.pi
+
                     if 'hueJitter' in orig_params:
                         set_brush_color_randomness(new_brush, 'hue', orig_params['hueJitter'].value * 0.01)
                     if 'saturationJitter' in orig_params:
@@ -557,6 +589,12 @@ class ImportBrushOperator(bpy.types.Operator, ImportHelper):
                                 new_brush.gpencil_settings.use_jitter_pressure = (orig_params['ScatterSensor'].find("pressure") != -1)
                             else:
                                 new_brush.use_pressure_jitter = (orig_params['ScatterSensor'].find("pressure") != -1)
+            
+                # Blender 5.1+: Grease Pencil stroke placement
+                if self.brush_context_mode == 'GPENCIL':
+                    if hasattr(new_material.grease_pencil, 'placement_radius_spacing'):
+                        new_material.grease_pencil.placement_radius_spacing = new_brush.spacing
+
             fd.close()
 
         if failures == 0:
