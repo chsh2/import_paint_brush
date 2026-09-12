@@ -12,7 +12,7 @@ class KppParser:
         self.bytes = bytes
         self.dir = presets_dir
         self.brush_mats = []
-        self.mask_mats = []
+        self.is_tex_grain = []
         self.params = {}                      # One KPP only contains one config file
 
         self.is_valid_png = True
@@ -147,14 +147,16 @@ class KppParser:
                 tex_mats = self.get_resource_img_mats(tex_path)
                 has_tex = len(tex_mats) > 0
 
-        if has_tex and not has_tip:
-            self.is_tex_grain = [True for _ in tex_mats]
-            self.brush_mats += tex_mats
-        elif has_tip:
+        if has_tip:
             self.brush_mats += tip_mats
-            if has_tex:
-                self.mask_mats += tex_mats
+            self.is_tex_grain += [False for _ in tip_mats]
+        if has_tex:
+            self.brush_mats += tex_mats
+            self.is_tex_grain += [True for _ in tex_mats]
 
+        # Some parameter conversions are based on the actual image size
+        if len(self.brush_mats) > 0:
+            self.params['KPP_BRUSH_SIZE'] = min(self.brush_mats[0].shape[0], self.brush_mats[0].shape[1])
 
     def get_resource_img_mats(self, filepath):
         """Resources may be in various formats -- call different parsers to get the image matrices"""
@@ -190,9 +192,12 @@ class KppParser:
                 parser.parse()
                 return parser.brush_mats
 
-        elif filepath.endswith('.png') or filepath.endswith('.jpg') or filepath.endswith('.jpeg'):
-            import bpy
-            import bpy_extras.image_utils
+        elif filepath.endswith('.png') or filepath.endswith('.jpg') or filepath.endswith('.jpeg') or filepath.endswith('.bmp'):
+            try:
+                import bpy
+                import bpy_extras.image_utils
+            except ImportError: # For testing environment
+                return []
             img_obj = bpy_extras.image_utils.load_image(filepath, check_existing=True)
             img_W = img_obj.size[0]
             img_H = img_obj.size[1]
