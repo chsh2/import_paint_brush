@@ -2,12 +2,12 @@
 
 This is an add-on that converts brush assets of several popular painting software to Blender ones.
 
-- Supported brush formats: `.abr`, `.gbr`, `.brushset`, `.sut`
+- Supported brush formats: `.abr`, `.gbr`, `.brushset`, `.sut`, `.bundle`
 - Supported Blender modes: `Texture Paint` / `Sculpt` / `Vertex Paint` / `Grease Pencil`
 
 ## Installation
 
-The add-on works with Blender 3.3 ~ 5.0:
+The add-on works with Blender 3.3 ~ 5.2:
 
 1. Download the archive file from the GitHub Release page. Do not unzip it.
 2. In Blender, open `[Edit]->[Preferences]->[Add-ons]` and click the Install button to load the archive. Enable the installed add-on.
@@ -42,7 +42,9 @@ By default, this add-on splits a multi-texture brush into individual ones. There
 ### Tips
 
 - Blender stores brushes in the current `.blend` file. To reuse the converted brushes in other files, please save the file to your [asset library](https://docs.blender.org/manual/en/latest/files/asset_libraries/introduction.html#what-is-an-asset-library).
-- This add-on can only convert brush files that contain texture images. Some brushes, which usually have a very small file size, only store parameters and no images. These brushes cannot be imported.
+- This add-on can only convert brush files that contain pixel texture images.
+  - For Krita brushes, the [Pixel Engine](https://docs.krita.org/en/reference_manual/brushes/brush_engines/pixel_brush_engine.html) is the only supported brush type. Besides, brushes with SVG textures are also not supported.
+  - For Procreate brushes, some exported brushes store only parameters but no texture images. These brushes cannot be imported, which can usually be identified by their small file size.
 - Please ensure that you comply with the copyright and licensing terms of the original brush assets. This tool only provides format conversion and does not grant you any additional rights to use or redistribute the converted brushes.
 
 ## Credits
@@ -50,6 +52,8 @@ By default, this add-on splits a multi-texture brush into individual ones. There
 The parsing of brush formats is learned from the following documents/projects:
 
 - [Adobe Photoshop File Format Specification](https://www.adobe.com/devnet-apps/photoshop/fileformatashtml/)
+- [Procreate Help: Brush Studio Settings](https://help.procreate.com/procreate/handbook/brushes/brush-studio-settings)
+- [Clip Studio Paint Official User Guide](https://help.clip-studio.com/en-us/manual_en/240_brushes/Customizing_brush_tools.htm)
 - [GIMP Source Code](https://github.com/GNOME/gimp/)
 - ["Just Solve the File Format Problem" Wiki](http://fileformats.archiveteam.org/wiki/Photoshop_brush)
 - [Krita Wiki](https://community.kde.org/Krita/Photoshop_Mapping_Table)

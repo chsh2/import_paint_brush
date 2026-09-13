@@ -133,7 +133,7 @@ class ImportBrushOperator(bpy.types.Operator, ImportHelper):
             ('RADIUS', 'Radius', 'Place dots evenly along the stroke')
         ],
         default='COUNT',
-        description='In Blender 5.1 or newer versions, Grease Pencil supports multiple ways to place dots along the drawn stroke. Earlier Blender versions ignore this option'
+        description='In Blender 5.2 or newer versions, Grease Pencil supports multiple ways to place dots along the drawn stroke. Earlier Blender versions ignore this option'
     )
 
     def draw(self, context):

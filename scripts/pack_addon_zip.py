@@ -11,6 +11,7 @@ EXTRA_IGNORE = [
     "/.git/",
     "/.github/",
     ".git*",
+    "*.toml",
 ]
 
 ignore_lines = []
