@@ -97,6 +97,11 @@ class ImportBrushOperator(bpy.types.Operator, ImportHelper):
         default='BRUSH',
         description='The directory to save thumbnail images, which are required to display brush icons for lower versions of Blender'
     )
+    pack_images: bpy.props.BoolProperty(
+        name='Pack Images into Blend File',
+        default=True,
+        description='Pack the brush texture images into the .blend file, which may increase the file size. When disabled, save the image files to the selected location instead. If the option to import as an image sequence is enabled, the sequences cannot be packed and will always be saved outside'
+    )
     template_brush: bpy.props.StringProperty(
         name='Template Brush',
         description='If non-empty, copy attributes from an existing brush for any attributes not specified or not parsed from the brush file',
@@ -120,6 +125,15 @@ class ImportBrushOperator(bpy.types.Operator, ImportHelper):
         name='Animated Brush as Image Sequence',
         default=False,
         description='Create a multi-frame brush to use with the add-on "Animated Texture Brush". If you do not have this add-on, please do not enable this option. The multi-frame brush is a feature of .sut and .gih formats but not natively supported by Blender'
+    )
+    gpencil_dot_placement_mode: bpy.props.EnumProperty(
+        name='Dot Placement Mode',
+        items=[
+            ('COUNT', 'Count', 'Place dots based on the drawing pace'),
+            ('RADIUS', 'Radius', 'Place dots evenly along the stroke')
+        ],
+        default='COUNT',
+        description='In Blender 5.1 or newer versions, Grease Pencil supports multiple ways to place dots along the drawn stroke. Earlier Blender versions ignore this option'
     )
 
     def draw(self, context):
@@ -151,6 +165,14 @@ class ImportBrushOperator(bpy.types.Operator, ImportHelper):
         row = box.row()
         row.label(text="Save Icons to: ")
         row.prop(self, 'icon_save_path', text="")
+        box.prop(self, 'pack_images')
+
+        if self.brush_context_mode == 'GPENCIL':
+            layout.label(text="Grease Pencil Options:")
+            box = layout.box()
+            row = box.row()
+            row.label(text="Dot Placement Mode: ")
+            row.prop(self, 'gpencil_dot_placement_mode', text="")
 
     def execute(self, context):
         import numpy as np
@@ -169,6 +191,10 @@ class ImportBrushOperator(bpy.types.Operator, ImportHelper):
             img_seq_dir = os.path.join(save_dir, 'bl_paint_brush_sequences')
             if not os.path.exists(img_seq_dir):
                 os.makedirs(img_seq_dir)
+        if not self.pack_images:
+            img_tex_dir = os.path.join(save_dir, 'bl_paint_brush_textures')
+            if not os.path.exists(img_tex_dir):
+                os.makedirs(img_tex_dir)
 
         # Unarchive Krita bundles as separate brushes
         total_brushes = 0
@@ -297,7 +323,12 @@ class ImportBrushOperator(bpy.types.Operator, ImportHelper):
                         )
                         img_obj = bpy.data.images[f'{f_name}.0001.png']
                 else:
-                    img_obj.pack()
+                    if self.pack_images:
+                        img_obj.pack()
+                    else:
+                        img_path = os.path.join(img_tex_dir, f'{f_name}_{i:04d}.png')
+                        img_obj.filepath_raw = img_path
+                        img_obj.save()
 
                 # Create a Blender texture
                 if self.brush_context_mode != 'GPENCIL':
@@ -335,7 +366,7 @@ class ImportBrushOperator(bpy.types.Operator, ImportHelper):
                         new_material.grease_pencil.mode = 'BOX'
                         new_material.grease_pencil.stroke_style = 'TEXTURE'
                         if hasattr(new_material.grease_pencil, 'placement_mode'):
-                            new_material.grease_pencil.placement_mode = 'COUNT'
+                            new_material.grease_pencil.placement_mode = self.gpencil_dot_placement_mode
                             new_material.grease_pencil.placement_count = 1
                         new_material.grease_pencil.mix_stroke_factor = 1
                         new_material.grease_pencil.stroke_image = img_obj
@@ -381,7 +412,7 @@ class ImportBrushOperator(bpy.types.Operator, ImportHelper):
 
                 # Create an icon by scaling the brush texture down
                 icon_name = f"icon_{self.brush_context_mode}_{f_name.split('.')[0]}_{i}"
-                if self.import_as_sequence:
+                if self.import_as_sequence or not self.pack_images:
                     icon_obj = bpy.data.images.new(icon_name, img_W, img_H, alpha=True, float_buffer=False)
                     icon_obj.pixels.foreach_set(img_pixels)
                 else:
