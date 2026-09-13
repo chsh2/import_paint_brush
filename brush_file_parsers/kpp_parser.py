@@ -73,7 +73,8 @@ class KppParser:
                     continue
                 if compression_flag:
                     xml_str = zlib.decompress(rest[pos:]).decode("utf-8", errors="replace")
-                xml_str = rest[pos:].decode("utf-8", errors="replace")
+                else:
+                    xml_str = rest[pos:].decode("utf-8", errors="replace")
 
             try:
                 root = ET.fromstring(xml_str)
@@ -160,7 +161,7 @@ class KppParser:
 
     def get_resource_img_mats(self, filepath):
         """Resources may be in various formats -- call different parsers to get the image matrices"""
-        if filepath.endswith('.abr'):
+        if filepath.lower().endswith('.abr'):
             from .abr_parser import Abr1Parser, Abr6Parser
             with open(filepath, 'rb') as fd:
                 bytes = fd.read()
@@ -174,7 +175,7 @@ class KppParser:
                 parser.parse()
                 return parser.brush_mats
 
-        elif filepath.endswith('.gbr'):
+        elif filepath.lower().endswith('.gbr'):
             from .gbr_parser import GbrParser
             with open(filepath, 'rb') as fd:
                 parser = GbrParser(fd.read())
@@ -183,7 +184,7 @@ class KppParser:
                 parser.parse()
                 return parser.brush_mats
 
-        elif filepath.endswith('.gih'):
+        elif filepath.lower().endswith('.gih'):
             from .gbr_parser import GihParser
             with open(filepath, 'rb') as fd:
                 parser = GihParser(fd.read())
@@ -192,7 +193,7 @@ class KppParser:
                 parser.parse()
                 return parser.brush_mats
 
-        elif filepath.endswith('.png') or filepath.endswith('.jpg') or filepath.endswith('.jpeg') or filepath.endswith('.bmp'):
+        elif filepath.lower().endswith('.png') or filepath.lower().endswith('.jpg') or filepath.lower().endswith('.jpeg') or filepath.lower().endswith('.bmp'):
             try:
                 import bpy
                 import bpy_extras.image_utils

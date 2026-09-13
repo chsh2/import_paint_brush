@@ -199,9 +199,9 @@ class ImportBrushOperator(bpy.types.Operator, ImportHelper):
         # Unarchive Krita bundles as separate brushes
         total_brushes = 0
         failures = 0
-        brush_files = [(str(self.directory), str(f.name)) for f in self.files if not f.name.endswith('.bundle')]
+        brush_files = [(str(self.directory), str(f.name)) for f in self.files if not f.name.lower().endswith('.bundle')]
         for f in self.files:
-            if not f.name.endswith('.bundle'):
+            if not f.name.lower().endswith('.bundle'):
                 continue
             bundle_processor = BundleProcessor(os.path.join(self.directory, f.name))
             if not bundle_processor.unarchive(bpy.app.tempdir):
@@ -223,32 +223,34 @@ class ImportBrushOperator(bpy.types.Operator, ImportHelper):
             parser = None
 
             try:
-                if f_name.endswith('.gbr'):
+                if f_name.lower().endswith('.gbr'):
                     parser = GbrParser(fd.read())
-                elif f_name.endswith('.gih'):
+                elif f_name.lower().endswith('.gih'):
                     parser = GihParser(fd.read())
-                elif f_name.endswith('.abr'):
+                elif f_name.lower().endswith('.abr'):
                     bytes = fd.read()
                     major_version = struct.unpack_from('>H',bytes)[0]
                     if major_version > 5:
                         parser = Abr6Parser(bytes)
                     else:
                         parser = Abr1Parser(bytes)
-                elif f_name.endswith('.kpp'):
+                elif f_name.lower().endswith('.kpp'):
                     parser = KppParser(fd.read(), d)
-                elif f_name.endswith('.brushset') or f_name.endswith('.brush'):
+                elif f_name.lower().endswith('.brushset') or f_name.lower().endswith('.brush'):
                     parser = BrushsetParser(filename)
-                elif f_name.endswith('.sut'):
+                elif f_name.lower().endswith('.sut'):
                     parser = SutParser(filename)
 
                 if not parser or not parser.check():
                     self.report({"ERROR"}, f"The brush file {f_name} cannot be recognized. Skipped this file.")
+                    fd.close()
                     continue
                 parser.parse()
 
             except Exception as e:
                 self.report({"ERROR"}, f"Failed to parse the brush file {f_name}: {e}")
                 failures += 1
+                fd.close()
                 continue
 
             total_brushes += len(parser.brush_mats)
