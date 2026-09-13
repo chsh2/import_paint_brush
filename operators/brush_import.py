@@ -58,6 +58,15 @@ def set_brush_color_randomness(brush, attribute, value):
     if hasattr(brush, 'use_color_jitter'):
         brush.use_color_jitter |= value > 1e-3
 
+def set_material_gpencil_rotation(mat, rad):
+    """Fit any radian to [-pi/2, pi/2]"""
+    v = rad % (2 * np.pi)
+    if v >= 1.5 * np.pi:
+        v -= 2 * np.pi
+    elif v > 0.5 * np.pi:
+        v -= np.pi
+    mat.grease_pencil.alignment_rotation = v
+
 class ImportBrushOperator(bpy.types.Operator, ImportHelper):
     """Extract textures from several painting software brush formats to create Blender brushes"""
     bl_idname = "paint_brush.import_brushes"
@@ -217,6 +226,7 @@ class ImportBrushOperator(bpy.types.Operator, ImportHelper):
                 continue
 
             total_brushes += len(parser.brush_mats)
+            brush_data_mapping = {}
             for i,brush_mat in enumerate(parser.brush_mats):
                 if len(parser.brush_mats) == 1:
                     brush_name = f_name.split('.')[0]
@@ -407,9 +417,9 @@ class ImportBrushOperator(bpy.types.Operator, ImportHelper):
                         if 'angle' in orig_params['brush']:
                             converted_rad = orig_params['brush']['angle'].value * np.pi / 180.0
                             if self.brush_context_mode == 'GPENCIL':
-                                new_material.grease_pencil.alignment_rotation = - converted_rad
+                                set_material_gpencil_rotation(new_material, - converted_rad)
                             else:
-                                new_brush.texture_slot.angle = np.pi / 2.0 - converted_rad
+                                new_brush.texture_slot.angle = (- converted_rad - np.pi / 2.0) % (2 * np.pi)
 
                     if 'toolOptions' in orig_params:
                         if 'Opct' in orig_params['toolOptions']:
@@ -465,10 +475,7 @@ class ImportBrushOperator(bpy.types.Operator, ImportHelper):
                         else:
                             new_brush.jitter = orig_params['plotJitter']
                     if 'plotSpacing' in orig_params:
-                        if self.brush_context_mode == 'GPENCIL':
-                            new_brush.gpencil_settings.input_samples = int(10 - 10 * orig_params['plotSpacing'])
-                        else:
-                            new_brush.spacing = int(100 * orig_params['plotSpacing'])
+                        new_brush.spacing = int(100 * orig_params['plotSpacing'])
                     if 'paintOpacity' in orig_params:
                         if self.brush_context_mode == 'GPENCIL':
                             new_brush.gpencil_settings.pen_strength = orig_params['paintOpacity']
@@ -485,23 +492,56 @@ class ImportBrushOperator(bpy.types.Operator, ImportHelper):
                         set_brush_color_randomness(new_brush, 'saturation', orig_params['dynamicsJitterStrokeSaturation'])
                     if 'dynamicsJitterStrokeDarkness' in orig_params:
                         set_brush_color_randomness(new_brush, 'value', orig_params['dynamicsJitterStrokeDarkness'])
+                    if 'shapeScatter' in orig_params:
+                        rand_factor = orig_params['shapeScatter']
+                        if self.brush_context_mode == 'GPENCIL':
+                            new_brush.gpencil_settings.use_settings_random |= rand_factor > 1e-3
+                            new_brush.gpencil_settings.uv_random = rand_factor
+                        else:
+                            new_brush.texture_slot.use_random |= rand_factor > 1e-3
+                            new_brush.texture_slot.random_angle = rand_factor * 2 * np.pi
+                    if self.brush_context_mode != 'GPENCIL':
+                        new_brush.texture_slot.angle = 1.5 * np.pi
 
                 # Parse and convert SUT brush parameters
                 if isinstance(parser, SutParser) and orig_params:
-                    if 'TextureScale2' in orig_params:
+                    # Spray mode overrides several parameters
+                    sut_spray_mode = orig_params.get('BrushUseSpray', 0) > 0
+                    rot_key = 'BrushRotationInSpray' if sut_spray_mode else 'BrushRotation'
+                    rot_effector_key = 'BrushRotationEffectorInSpray' if sut_spray_mode else 'BrushRotationEffector'
+                    rot_random_key = 'BrushRotationRandomInSpray' if sut_spray_mode else 'BrushRotationRandomScale'
+                    size_key = 'BrushSpraySize' if sut_spray_mode else 'BrushSize'
+
+                    sut_ribbon_mode = orig_params.get('BrushRibbon', 0) > 0
+                    sut_rot_delta = np.pi / 2.0 if sut_ribbon_mode else 0.0
+
+                    if rot_key in orig_params:
+                        converted_rad = orig_params[rot_key] * np.pi / 180.0 + sut_rot_delta
                         if self.brush_context_mode == 'GPENCIL':
-                            new_material.grease_pencil.texture_scale = (orig_params['TextureScale2']/100.0, orig_params['TextureScale2']/100.0)
-                    if 'BrushRotation' in orig_params:
-                        if orig_params['BrushRotation'] > 1.0:
-                            tex_angle = (orig_params['BrushRotation'] % 1.0) * np.pi / 2.0
+                            set_material_gpencil_rotation(new_material, converted_rad)
                         else:
-                            tex_angle = orig_params['BrushRotation'] * np.pi / 2.0
-                        if self.brush_context_mode == 'GPENCIL':
-                            new_material.grease_pencil.alignment_rotation = tex_angle
-                        else:
-                            new_brush.texture_slot.angle = np.pi / 2.0 - tex_angle
-                    if 'BrushSize' in orig_params:
-                        new_brush.size = int(orig_params['BrushSize'])
+                            new_brush.texture_slot.angle = (converted_rad - np.pi / 2.0) % (2 * np.pi)
+                    if orig_params.get(rot_effector_key, 0) >= 128:
+                        if rot_random_key in orig_params:
+                            rand_factor = orig_params[rot_random_key] / 100.0
+                            if self.brush_context_mode == 'GPENCIL':
+                                new_brush.gpencil_settings.use_settings_random |= rand_factor > 1e-3
+                                new_brush.gpencil_settings.uv_random = rand_factor
+                            else:
+                                new_brush.texture_slot.use_random |= rand_factor > 1e-3
+                                new_brush.texture_slot.random_angle = rand_factor * 2 * np.pi
+                    if size_key in orig_params:
+                        new_brush.size = int(orig_params[size_key])
+                    
+                    if sut_spray_mode:
+                        if 'BrushSprayBias' in orig_params:
+                            converted_factor = - orig_params['BrushSprayBias'] / 200.0 + 0.5
+                            if self.brush_context_mode == 'GPENCIL':
+                                new_brush.gpencil_settings.use_settings_random |= converted_factor > 1e-3
+                                new_brush.gpencil_settings.pen_jitter = converted_factor / 2.0
+                            else:
+                                new_brush.jitter = converted_factor / 2.0
+
                     if 'Opacity' in orig_params:
                         if self.brush_context_mode == 'GPENCIL':
                             new_brush.gpencil_settings.pen_strength = orig_params['Opacity'] / 100.0
@@ -512,10 +552,7 @@ class ImportBrushOperator(bpy.types.Operator, ImportHelper):
                         else:
                             new_brush.hardness = orig_params['BrushHardness'] / 100.0
                     if 'BrushInterval' in orig_params:
-                        if self.brush_context_mode == 'GPENCIL':
-                            new_brush.gpencil_settings.input_samples = int(10 - orig_params['BrushInterval'] / 10.0)
-                        else:
-                            new_brush.spacing = int(orig_params['BrushInterval'])
+                        new_brush.spacing = int(orig_params['BrushInterval'])
                     if 'BrushChangePatternColor' in orig_params and orig_params['BrushChangePatternColor'] > 0:
                         if 'BrushHueChange' in orig_params:
                             set_brush_color_randomness(new_brush, 'hue', orig_params['BrushHueChange'] / 360.0)
@@ -524,9 +561,15 @@ class ImportBrushOperator(bpy.types.Operator, ImportHelper):
                         if 'BrushValueChange' in orig_params:
                             set_brush_color_randomness(new_brush, 'value', orig_params['BrushValueChange'] / 100.0)
 
+                    if sut_ribbon_mode:
+                        new_brush.spacing = 50
+                        if self.brush_context_mode == 'GPENCIL':
+                            new_brush.gpencil_settings.uv_random = 0.0
+                        else:
+                            new_brush.texture_slot.random_angle = 0.0
+
                 # Parse and convert KPP brush parameters: most parameters are texts
                 if isinstance(parser, KppParser) and orig_params:
-
                     if 'brush_definition/scale' in orig_params:
                         converted_size = float(orig_params['brush_definition/scale']) * orig_params['KPP_BRUSH_SIZE']
                         if 'SizeValue' in orig_params:
@@ -544,9 +587,9 @@ class ImportBrushOperator(bpy.types.Operator, ImportHelper):
                     if 'brush_definition/angle' in orig_params:
                         converted_rad = float(orig_params['brush_definition/angle'])
                         if self.brush_context_mode == 'GPENCIL':
-                            new_material.grease_pencil.alignment_rotation = - converted_rad
+                            set_material_gpencil_rotation(new_material, - converted_rad)
                         else:
-                            new_brush.texture_slot.angle = np.pi / 2.0 - converted_rad
+                            new_brush.texture_slot.angle = (- converted_rad - np.pi / 2.0) % (2 * np.pi)
 
                     if 'PressureSize' in orig_params and orig_params['PressureSize'] == 'true':
                         if 'SizeValue' in orig_params:
@@ -590,10 +633,27 @@ class ImportBrushOperator(bpy.types.Operator, ImportHelper):
                             else:
                                 new_brush.use_pressure_jitter = (orig_params['ScatterSensor'].find("pressure") != -1)
             
-                # Blender 5.1+: Grease Pencil stroke placement
+                # Post-processing for certain parameters
                 if self.brush_context_mode == 'GPENCIL':
+                    # Blender 5.1+: Grease Pencil stroke placement
                     if hasattr(new_material.grease_pencil, 'placement_radius_spacing'):
                         new_material.grease_pencil.placement_radius_spacing = new_brush.spacing
+                    new_brush.gpencil_settings.input_samples = max(int(10 - new_brush.spacing / 20.0), 1)
+
+                if (orig_name, orig_type) not in brush_data_mapping:
+                    brush_data_mapping[(orig_name, orig_type)] = []
+                brush_data_mapping[(orig_name, orig_type)].append(new_brush)
+
+            # Texture paint mode can use both a texture and a mask at the same time
+            if self.brush_context_mode == 'TEXTURE':
+                for (grain_name, grain_type), grain_brushes in brush_data_mapping.items():
+                    if grain_type == 'GRAIN' and len(grain_brushes) > 0:
+                        grain_brush = grain_brushes[0]
+                        for (orig_name, orig_type), tex_brushes in brush_data_mapping.items():
+                            if orig_name == grain_name and orig_type != 'GRAIN':
+                                for tex_brush in tex_brushes:
+                                    tex_brush.mask_texture = grain_brush.mask_texture
+                                    tex_brush.mask_texture_slot.map_mode = 'TILED'
 
             fd.close()
 

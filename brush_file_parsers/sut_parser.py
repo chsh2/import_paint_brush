@@ -24,9 +24,8 @@ class SutParser():
         return len(res) > 0
 
     def parse(self):
-        import os, sqlite3, bpy
-        import bpy_extras.image_utils
-        cache_dir = bpy.app.tempdir
+        import os
+        import sqlite3
 
         con = sqlite3.connect(self.filename)
         cur = con.cursor()
@@ -42,6 +41,14 @@ class SutParser():
         self.params[0]['BrushName'] = brush_name
 
         # Get image data encoded in PNG
+        try:
+            import bpy
+            import bpy_extras.image_utils
+        except ImportError:
+            con.close()
+            return
+
+        cache_dir = bpy.app.tempdir
         res = cur.execute("SELECT FileData FROM MaterialFile").fetchall()
         for img_bytes in res:
             # Only the last PNG block is a valid texture
