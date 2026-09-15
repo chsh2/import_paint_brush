@@ -1,7 +1,7 @@
 schema_version = "1.0.0"
 
 id = "import_paint_brush"
-version = "0.4.0"
+version = "0.5.0"
 name = "Import Paint Brushes"
 tagline = "Parsing several brush formats of painting software"
 maintainer = "chsh2"
