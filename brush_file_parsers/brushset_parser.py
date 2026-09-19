@@ -15,11 +15,9 @@ class BrushsetParser():
         return zipfile.is_zipfile(self.filename)
     
     def parse(self):
-        import zipfile, os, plistlib, bpy
-        from bpy_extras import image_utils
+        import zipfile, os, plistlib
 
-        # Uncompress texture files to the temporary folder
-        cache_dir = bpy.app.tempdir
+        # Pair image resources with plist files and extract the parameters
         tex_paths = []
         with zipfile.ZipFile(self.filename) as archive:
             namelist = archive.namelist()
@@ -39,14 +37,24 @@ class BrushsetParser():
                             self.params[-1] = {key:value for key, value in tmp_map.items() if value != None}
                     brush_id = member[:-10]
                     self.params[-1]['identifier'] = brush_id
-            for member in tex_paths:
-                archive.extract(member, cache_dir)
                 
         # Process each texture image file
+        try:
+            import bpy
+            import bpy_extras.image_utils
+        except ImportError:
+            return
+
+        # Uncompress texture files to the temporary folder
+        cache_dir = bpy.app.tempdir
+        with zipfile.ZipFile(self.filename) as archive:
+            for member in tex_paths:
+                archive.extract(member, cache_dir)
+
         # The images loaded in Blender here are just for extracting the pixels
         # Final brush textures are generated not from this parser, but the operator
         for path in tex_paths:
-            img_obj = image_utils.load_image(os.path.join(cache_dir, path), check_existing=True)
+            img_obj = bpy_extras.image_utils.load_image(os.path.join(cache_dir, path), check_existing=True)
             img_W = img_obj.size[0]
             img_H = img_obj.size[1]
             img_mat = np.array(img_obj.pixels).reshape(img_H,img_W, img_obj.channels)
