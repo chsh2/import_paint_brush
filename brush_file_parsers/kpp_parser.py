@@ -107,6 +107,11 @@ class KppParser:
             filename = resource.get('filename')
             search_path = os.path.join(self.dir, "..", subdir, filename)
 
+            # Reject suspicious paths
+            expected_parent = pathlib.Path(self.dir).parent.resolve()
+            if not pathlib.Path(search_path).resolve().is_relative_to(expected_parent):
+                continue
+
             # TODO: Consider verifying md5sum
             if not os.path.exists(search_path):
                 b64_data = resource.text.strip() if resource.text else ''

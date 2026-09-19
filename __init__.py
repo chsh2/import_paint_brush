@@ -6,7 +6,6 @@ bl_info = {
     "blender" : (3, 3, 0),
     "version" : (0, 5, 0),
     "location" : "File > Import; Brush Settings > Texture > Brush Utilities",
-    "warning" : "This addon is still in an early stage of development",
     "doc_url": "",
     "wiki_url": "",
     "tracker_url": "https://github.com/chsh2/import_paint_brush/issues/",
