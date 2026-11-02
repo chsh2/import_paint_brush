@@ -457,8 +457,8 @@ class ImportBrushOperator(bpy.types.Operator, ImportHelper):
                     if 'toolOptions' in orig_params:
                         if 'Opct' in orig_params['toolOptions']:
                             if self.brush_context_mode == 'GPENCIL':
-                                new_brush.gpencil_settings.pen_strength = orig_params['toolOptions']['Opct'].value * 0.01
-                            new_brush.strength = orig_params['toolOptions']['Opct'].value * 0.01
+                                new_brush.gpencil_settings.pen_strength = orig_params['toolOptions']['Opct'] * 0.01
+                            new_brush.strength = orig_params['toolOptions']['Opct'] * 0.01
 
                     if 'sizeControl' in orig_params:
                         if 'jitter' in orig_params['sizeControl']:
