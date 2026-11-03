@@ -305,7 +305,6 @@ class ImportBrushOperator(bpy.types.Operator, ImportHelper):
                 img_obj = bpy.data.images.new(brush_name, img_W, img_H, alpha=True, float_buffer=False)
                 img_pixels = np.flipud(image_mat).astype(np.float32).ravel() / 255.0
                 img_obj.pixels.foreach_set(img_pixels)
-                img_obj.alpha_mode = 'PREMUL'
 
                 # In the image sequence mode, save all images, and generate only one brush by reloading images as a sequence
                 # In other modes, pack the image into the .blend file
@@ -331,6 +330,7 @@ class ImportBrushOperator(bpy.types.Operator, ImportHelper):
                         img_path = os.path.join(img_tex_dir, f'{f_name}_{i:04d}.png')
                         img_obj.filepath_raw = img_path
                         img_obj.save()
+                img_obj.alpha_mode = 'PREMUL'
 
                 # Create a Blender texture
                 if self.brush_context_mode != 'GPENCIL':
