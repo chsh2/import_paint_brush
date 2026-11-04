@@ -7,7 +7,7 @@ This is an add-on that converts brush assets of several popular painting softwar
 
 ## Installation
 
-The add-on works with Blender 3.3 ~ 5.2:
+The add-on works with Blender 3.3 ~ 5.3:
 
 1. Download the archive file from the GitHub Release page. Do not unzip it.
 2. In Blender, open `[Edit]->[Preferences]->[Add-ons]` and click the Install button to load the archive. Enable the installed add-on.
